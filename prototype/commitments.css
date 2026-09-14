@@ -1,0 +1,671 @@
+/* ==========================================================================
+   Commitments overview — Figma 15199:63789 (web) and 15786:119703 (phone)
+   ========================================================================== */
+
+body.ov { overflow: auto; background: var(--bg-primary); }
+body.ov .app { display: block; height: auto; min-height: 0; }
+
+/* --- Type styles this page adds ------------------------------------------- */
+
+/* The page title takes its type from .ts-title-xl alone — title/extra_large,
+   60/60, the size Figma 15199:63789 sets it at — and steps down the phone ramp
+   in styles.css to 40/48, exactly as the commitment pages' title does. Nothing
+   here sizes it: a rule on .ov-title would outrank the ramp, since this sheet
+   loads after styles.css. */
+
+/* Every card quote, at every width, is sized the way the commitment page sizes
+   its card's quote: the Lora ladder from quote/large 36/44 down to
+   quote/extra_small 20/28, stepping down only as far as it takes for the whole
+   card to fit its square. fitQuotes() in commitments.js picks the step and sets
+   it here; until it has run, quote/large.
+
+   Seven lines at most, then an ellipsis, at every step — the whole commitment
+   is on the page the card opens. The ladder is measured without the clamp, so
+   a quote is only cut when it does not fit the square even at the smallest
+   step. */
+.ov-quote {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 7;
+  overflow: hidden;
+  margin: 0;
+  font-family: var(--font-quote);
+  font-weight: 400;
+  font-size: var(--ov-quote-size, var(--scale-900));
+  line-height: var(--ov-quote-leading, var(--scale-1100));
+  letter-spacing: var(--ls-titles);
+}
+
+/* The featured card's quote takes the same ladder, centred in the height the
+   card has left under its head, as the frame's quote slot is: `margin-block:
+   auto` splits the free space. */
+.ov-card.is-featured .ov-quote { margin-block: auto; }
+
+/* title/small — Poppins SemiBold 20/28 */
+.ov-head {
+  display: flex;
+  gap: 6px;
+  align-items: flex-start;
+  width: 100%;
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: var(--scale-500);
+  line-height: var(--scale-700);
+  letter-spacing: var(--ls-titles);
+}
+
+/* title/medium on the featured card */
+.ov-card.is-featured .ov-head {
+  gap: 8px;
+  font-size: var(--scale-600);
+  line-height: var(--scale-800);
+}
+
+.ov-head .who { flex: 1 0 0; min-width: 0; }
+
+/* --- Hero ----------------------------------------------------------------- */
+
+/* The columns, the gutters and the breaks inside are the commitment page's own
+   — .cm-grid, read through the `cm` class on the section; see mount() in
+   commitments.js. Set here is only what is the overview's: the space above
+   and below the grid, and the intro's contents. */
+.ov-hero {
+  padding: 24px 0;
+  border-top: 1px solid var(--bg-tertiary);
+}
+
+/* Centred against the card beside it. .cm-grid stretches both tracks to the
+   row, so this column is the card's height and centring in it is centring on
+   the card; the 40 above and below keep the intro clear of the row's edges on
+   the day it is the taller of the two. */
+.ov-intro {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 32px;
+  padding: 40px 0;
+}
+
+/* body/extra_large, 20/32, with body/extra_large's paragraph spacing between
+   the two paragraphs — 24, since the text styles gained paragraph spacing in
+   Figma. The phone steps both down to body/medium, 16/24 and 20. */
+.ov-lede p { margin: 0; font-size: var(--scale-500); line-height: var(--scale-800); }
+.ov-lede p + p { margin-top: var(--scale-600); }
+
+/* Form/Button, Primary, Large: 16 in all round, radius 16, body/button, and
+   sized to its label rather than stretched across the column. */
+.ov-cta {
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  padding: 16px;
+  border-radius: 16px;
+  background: var(--bg-button-primary);
+  color: var(--fg-button-primary);
+  box-shadow: var(--shadow-button);
+  text-decoration: none;
+}
+
+.ov-cta:focus-visible { outline: 2px solid var(--ocean-600); outline-offset: 2px; }
+
+/* --- Cards ---------------------------------------------------------------- */
+
+.ov-container {
+  background: var(--bg-tertiary);
+  padding: 24px 24px 80px;
+}
+
+/* Equal heights, as the frame draws the row: the cards stretch to the tallest
+   and their badges sit on the foot. */
+.ov-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+  align-items: stretch;
+}
+
+.ov-card {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 40px;
+  background: var(--bg-primary);
+  color: var(--fg-primary);
+  box-shadow: var(--shadow-small);
+  text-decoration: none;
+  transition: transform .2s ease, box-shadow .2s ease;
+  /* A square at least, as the commitment page's card is: fitQuotes() sets the
+     floor to the card's own width. A floor, not a size — content that needs
+     more grows the card, and the row stretches its neighbours to match.
+
+     Not aspect-ratio. With the row stretching the cards, the browser ran the
+     ratio the other way and took each card's width from its height, pushing
+     the cards out of their columns. */
+  min-height: var(--ov-card-min, 0);
+}
+
+/* Measuring pass for fitQuotes(): the card's natural height at a given quote
+   step — not the square it is held at, nor the height its row stretches it to. */
+.ov-card.is-measuring {
+  min-height: 0;
+  align-self: flex-start;
+}
+
+.ov-card.is-measuring .ov-quote { -webkit-line-clamp: none; }
+
+/* On hover the card sinks into the page: the whole of it — ground, quote and
+   badges — scales down to 16px narrower, and its shadow all but goes, as if it
+   had come to rest on the background. A transform leaves the card's box in the
+   layout untouched, so the grid and the cards beside it do not move.
+
+   The scale is one number for both axes, so the type is never squashed; the
+   height follows the width and loses about the same 16px, the cards being
+   close to square. commitments.js sets --ov-hover-scale from the card's own
+   width as the pointer arrives, since CSS cannot read it; .965 is that figure
+   for a card in the three-column row, and stands in until the script has run.
+
+   Only where there is a real pointer: on a touchscreen a tap leaves :hover
+   stuck on, and the card would stay small after the finger has gone. */
+@media (hover: hover) {
+  .ov-card:hover {
+    transform: scale(var(--ov-hover-scale, .965));
+    box-shadow: 0 0 1px 0 rgba(41, 49, 69, .04);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ov-card { transition: none; }
+}
+.ov-card:focus-visible { outline: 2px solid var(--ocean-600); outline-offset: 2px; }
+
+/* Under the cards, the way to the rest of the repository on all-commitments.html:
+   a plain link in the ocean the page's other links and highlights take, with
+   the row of cards' own 40 above it. */
+.ov-all {
+  display: inline-block;
+  margin-top: 40px;
+  color: var(--fg-link);
+  text-decoration: none;
+}
+
+.ov-all:hover { text-decoration: underline; }
+.ov-all:focus-visible { outline: 2px solid var(--ocean-600); outline-offset: 2px; }
+
+/* leaf_500, 40 in and 64 under, filling the 571 column it sits in. Square at
+   least, like every card — the commitment page's rule, in place of the frame's
+   600 floor. */
+.ov-card.is-featured {
+  padding: 40px 40px 64px;
+  gap: 24px;
+  background: var(--leaf-500);
+  color: var(--fg-accent, #fff);
+}
+
+.ov-card.is-featured .ov-head,
+.ov-card.is-featured .ov-quote { color: #fff; }
+
+/* The card's gap is the space above the badges, and they sit on its foot, so
+   they line up across cards of unequal quotes. */
+.ov-badges {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  margin-top: auto;
+}
+
+/* Not pushed down on the featured card: its quote's own auto margins already
+   take the free space, and a third would pull the quote off centre. */
+.ov-card.is-featured .ov-badges {
+  flex-direction: row;
+  align-items: flex-end;
+  margin-top: 0;
+}
+
+/* From 1100 down the commitment page's grid is one column, 40 between the card
+   and the prose, and the hero goes with it. 32 above and below, as the
+   commitment page's hero sections take at this width. The featured card stays
+   a square at least, here as everywhere: across the full column that is a
+   tall card. */
+@media (max-width: 1100px) {
+  .ov-hero { padding: 32px 0; }
+  .ov-intro { padding: 0; }
+
+  /* Title and intro first, then the card — the phone's order, at every width
+     where the hero is one column, since one column reads the same at all of
+     them. commitment.css puts the card column first from 1100 down with
+     `order`; placeIntro() has already moved the intro above it in the
+     document, so the order goes back to the document's. */
+  .ov-hero .cm-side { order: 0; }
+  .ov-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+/* --- Phone ---------------------------------------------------------------
+   Figma 15786:119703, the overview at 390: a 16px gutter where the wider
+   layouts use 24, and 16px inside every card where they use 40. The break is
+   the one commitment.css and styles.css already use for a phone. */
+@media (max-width: 700px) {
+  /* The hero reads as one section in the frame, closed by a rule: 40 above the
+     title, 32 down to the card, 40 after it. The 32 is the commitment grid's
+     own gap variable, set rather than overridden, so the grid keeps one way of
+     spacing its rows. */
+  .ov-hero {
+    --cm-gap: 32px;
+    padding: 40px 0;
+    border-bottom: 1px solid var(--stroke-border-darker);
+  }
+
+  .ov-intro { gap: 24px; }
+
+  /* body/medium, 16/24 — and the two paragraphs 20 apart, which the phone
+     frame gives them and the desktop one does not. */
+  .ov-lede p { font-size: var(--scale-400); line-height: var(--scale-600); }
+  .ov-lede p + p { margin-top: 20px; }
+
+  /* 16 on every side — the page gutter, repeated inside the card. */
+  .ov-card,
+  .ov-card.is-featured { padding: 16px; gap: 24px; }
+
+  /* title/small on both cards, so the featured head steps down from medium */
+  .ov-card.is-featured .ov-head { font-size: var(--scale-500); line-height: var(--scale-700); }
+
+  /* No quote sizes of the phone's own: the quote steps down the same ladder
+     here, fitted to the card's square by fitQuotes(). */
+
+  /* 40 above and below the row. The row carries the gutter itself, below. */
+  .ov-container { padding: 40px 0; }
+
+  /* The container gives up its gutter here to let the row of cards run to the
+     window edge, so the link carries the gutter itself. */
+  .ov-all { margin-inline: 16px; }
+
+  /* The rest of the cases as one row, swiped sideways a card at a time.
+
+     It runs to both edges of the window, not the gutter: a card cut off at the
+     right edge is what says there is more to swipe. The inline padding puts the
+     first card back on the gutter and scroll-padding snaps every card to it.
+     The 8 above and below is room for the cards' shadow, which a scroller would
+     otherwise clip; the matching negative margins keep it out of the layout. */
+  .ov-grid {
+    display: flex;
+    gap: 8px;
+    align-items: stretch;
+    margin: -8px 0;
+    padding: 8px 16px;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    scroll-snap-type: x mandatory;
+    scroll-padding-inline: 16px;
+  }
+
+  .ov-grid > .ov-card { flex: 0 0 240px; scroll-snap-align: start; }
+}
+
+/* ==========================================================================
+   All-commitments repository — watchtower.bank.green/institution/<bank>
+
+   Measured off that page, not approximated: the 312px filter rail on the page
+   ground, the 1112px white card at radius 10 with a wide soft shadow, the 52px
+   tools bar one tint up, and a list of 32px rows separated by 8px of space
+   with no rules between them — the hover tint marks the row instead.
+
+   No rule here sets a font size, weight or transform. Type comes from the
+   ts-* classes in styles.css, which are the Figma text styles.
+   ========================================================================== */
+
+.ov-repo {
+  padding-bottom: 40px;
+  background: var(--bg-tertiary);
+}
+
+/* Rail flush to the left edge, card taking everything that is left, at any
+   width — the layout the reference uses. */
+.repo-shell {
+  display: grid;
+  grid-template-columns: 312px minmax(0, 1fr);
+  align-items: start;
+}
+
+/* --- Filter rail ---------------------------------------------------------- */
+
+/* The rail sits on the page ground with no card of its own, and stays put
+   while the list scrolls past it. */
+.repo-rail { position: sticky; top: 0; }
+
+.repo-side {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  max-height: 100vh;
+  overflow-y: auto;
+  padding: 18px 40px 18px 24px;
+}
+
+.repo-field { display: flex; flex-direction: column; gap: 6px; }
+.repo-label { color: var(--fg-secondary); }
+
+.repo-input,
+.repo-select {
+  height: 40px;
+  padding: 0 12px;
+  color: var(--fg-input);
+  background: var(--bg-input);
+  border: 1px solid var(--stroke-input);
+  border-radius: 8px;
+  font-family: inherit;
+}
+
+.repo-input::placeholder { color: var(--fg-label-secondary); }
+.repo-input:focus-visible,
+.repo-select:focus-visible { outline: 2px solid var(--ocean-600); outline-offset: 1px; }
+
+.repo-checks { display: flex; flex-direction: column; gap: 8px; padding-top: 2px; }
+
+.repo-check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--fg-primary);
+  cursor: pointer;
+}
+
+.repo-check input { width: 16px; height: 16px; margin: 0; accent-color: var(--ocean-600); }
+
+/* Below the filters and set off from them: it changes how a row reads, not
+   which rows are here. */
+.repo-field-reading {
+  padding-top: 16px;
+  border-top: 1px solid var(--stroke-border-darker);
+}
+
+.repo-field-reading .repo-seg { align-self: flex-start; }
+
+.repo-clear {
+  align-self: flex-start;
+  padding: 0;
+  color: var(--fg-secondary);
+  background: none;
+  border: 0;
+  font-family: inherit;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.repo-clear:hover { color: var(--fg-primary); }
+
+/* --- Card ----------------------------------------------------------------- */
+
+.repo-card {
+  margin: 16px 16px 0 0;
+  overflow: hidden;
+  background: var(--bg-primary);
+  border-radius: 10px;
+  box-shadow: 0 12px 40px 0 rgba(14, 116, 144, .08);
+}
+
+.repo-header {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 22px 24px;
+}
+
+.repo-header h2 { margin: 0; color: var(--ocean-900); }
+
+/* Dark theme. The repository's own tints are light ones — a navy heading, a
+   pale tools bar, a mid-blue idle segment — and on the dark card each either
+   vanishes or glares, so each takes a dark counterpart here. */
+[data-theme="dark"] .repo-header h2,
+[data-theme="dark"] .repo-group-head h3 { color: var(--fg-primary); }
+[data-theme="dark"] .repo-tools { background: var(--sky-700); }
+[data-theme="dark"] .repo-seg-btn { color: var(--sky-300); }
+
+.repo-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+
+.repo-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  color: var(--fg-button-quote);
+  background: var(--bg-button-quote);
+  border: 0;
+  border-radius: 14px;
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.repo-chip-x { line-height: 1; }
+.repo-chip:hover { background: var(--sunglow-400); }
+.repo-chip:focus-visible { outline: 2px solid var(--ocean-600); outline-offset: 1px; }
+
+/* --- Tools bar ------------------------------------------------------------ */
+
+.repo-tools {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  min-height: 52px;
+  padding: 8px 24px;
+  background: var(--sky-70);
+}
+
+.repo-count { color: var(--fg-secondary); white-space: nowrap; }
+
+.repo-seg-wrap { display: flex; align-items: center; gap: 8px; }
+.repo-seg-label { color: var(--fg-secondary); white-space: nowrap; }
+
+.repo-seg {
+  display: flex;
+  gap: 2px;
+  padding: 2px;
+  background: var(--bg-tools-tabs);
+  border-radius: 8px;
+}
+
+/* 24px tall segments on a 28px track, the proportions the live control uses. */
+.repo-seg-btn {
+  display: inline-flex;
+  align-items: center;
+  padding: 5px 10px;
+  color: var(--sky-400);
+  background: none;
+  border: 0;
+  border-radius: 8px;
+  font-family: inherit;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.repo-seg-btn:hover { color: var(--fg-tools-tabs-active); }
+
+.repo-seg-btn.is-active {
+  color: var(--fg-tools-tabs-active);
+  background: var(--bg-tools-tabs-active);
+}
+
+.repo-seg-btn:focus-visible { outline: 2px solid var(--ocean-600); outline-offset: 1px; }
+
+/* --- Listing -------------------------------------------------------------- */
+
+/* Vertical padding only. The horizontal inset belongs to the rows, so a row's
+   ground and its rules reach both edges of the white card. */
+.repo-list { padding: 16px 0; }
+
+/* Below the width the five columns need, the list scrolls sideways rather
+   than being stacked into cards — the comparison is the point of the list. */
+@media (max-width: 1279px) {
+  .repo-list { overflow-x: auto; }
+}
+
+.repo-listing { min-width: 780px; }
+
+/* The track list is written onto the listing by the renderer, because the
+   columns change with the grouping. */
+.repo-row {
+  display: grid;
+  grid-template-columns: var(--repo-cols, 180px 150px minmax(0, 1fr) 120px 100px);
+  gap: 12px;
+  align-items: center;
+  padding: 0 24px;
+}
+
+.repo-group { margin-top: 8px; }
+
+.repo-group-head {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 16px 24px 8px;
+  border-bottom: 1px solid var(--stroke-border);
+}
+
+.repo-group-head h3 { margin: 0; color: var(--sky-900); }
+.repo-group-count { color: var(--fg-secondary); }
+
+/* 32px rows with 8px between them — the 40px rhythm of the design, carried by
+   space rather than by rules. */
+.repo-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-top: 8px;
+}
+
+.repo-row {
+  height: 32px;
+  color: var(--fg-primary);
+  transition: background-color .15s ease;
+}
+
+.repo-row:hover { background: var(--bg-secondary); }
+
+/* The row tints; the link underlines only under its own pointer, exactly as
+   the reference does it.
+
+   The link is sized to its text, not to the column. As a block it filled the
+   whole title cell — nearly a thousand pixels on a wide window — so the
+   underline fired with the pointer nowhere near the words. A flex cell lets
+   it shrink to its content while max-width still allows the ellipsis. */
+.repo-col-title { display: flex; min-width: 0; }
+
+.repo-link {
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+  color: var(--fg-link);
+  text-decoration: none;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.repo-link:hover { text-decoration: underline; text-underline-offset: 2px; }
+
+/* Reading the commitment itself, not scanning titles: ordinary text in the
+   primary ink, wrapping to as many lines as it needs. Still a link — it is
+   how the row reaches its page — but it does not announce itself as one. */
+.repo-link.is-plain {
+  max-width: none;
+  overflow: visible;
+  color: var(--fg-primary);
+  white-space: normal;
+  text-overflow: clip;
+}
+
+.repo-listing.is-plain .repo-col-title { display: block; }
+
+/* The fixed row height is what forces one line, so it becomes a floor. */
+.repo-listing.is-plain .repo-row {
+  height: auto;
+  min-height: 32px;
+  padding-top: 6px;
+  padding-bottom: 6px;
+}
+.repo-link:focus-visible { outline: 2px solid var(--ocean-600); outline-offset: 2px; }
+
+.repo-col-fuel { color: var(--fg-secondary); }
+.repo-col-fuel,
+.repo-col-bank,
+.repo-col-published { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.repo-col-published { text-align: right; }
+.repo-col-published.is-approx { color: var(--fg-secondary); }
+
+/* Figma 15752:118505. Background/contrast with accent text, the ground the
+   deal blocks wear on the commitment page, so the same fact reads the same way
+   in both places. The icon sits in the 2px side; the text keeps the 8px. */
+.repo-deal {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 2px 8px 2px 2px;
+  color: var(--fg-accent);
+  background: var(--bg-contrast);
+  border-radius: 16px;
+  white-space: nowrap;
+}
+
+.repo-deal-ico {
+  flex: none;
+  width: 16px;
+  height: 16px;
+  display: block;
+}
+
+/* The assessment is the one column worth colouring: it is the answer. */
+.repo-result {
+  display: inline-block;
+  padding: 3px 8px;
+  border-radius: 10px;
+  white-space: nowrap;
+}
+
+.repo-result.is-holds    { color: var(--leaf-500);     background: var(--sushi-100); }
+.repo-result.is-hollowed { color: var(--sunglow-900);  background: var(--sunglow-200); }
+.repo-result.is-crushed  { color: var(--coral-600);    background: var(--coral-100); }
+.repo-result.is-unknown  { color: var(--fg-secondary); background: var(--bg-tertiary); }
+
+.repo-empty { margin: 0; padding: 48px 24px; color: var(--fg-secondary); }
+
+/* Below the rail's own width plus a usable card, the filters stop being a rail
+   and become a block above the list. */
+@media (max-width: 1023px) {
+  .repo-shell { grid-template-columns: minmax(0, 1fr); }
+  .repo-rail { position: static; }
+  .repo-side { max-height: none; padding: 24px 24px 8px; }
+  .repo-card { margin: 8px 16px 0; }
+}
+
+/* --- Footer --------------------------------------------------------------- */
+
+/* .cm-footer pads itself with `padding: 24px var(--cm-gutter)`, and
+   --cm-gutter is declared on .cm. This page is .ov, so the variable never
+   resolves — and an unresolved var() invalidates the whole declaration at
+   computed-value time, not just the half that used it. The footer was
+   getting padding: 0 on all four sides: flush to the window edges and with
+   its content jammed against the rule above it. */
+body.ov .cm-footer {
+  padding: 24px;
+}
+
+/* The phone gutter, 16 rather than 24, carried through the list and the footer
+   so every edge on the page lines up with the cards above. Inside the list's
+   card the same 16 replaces its 24. */
+@media (max-width: 700px) {
+  .repo-side { padding: 16px 16px 8px; }
+  .repo-header { padding: 16px; }
+  .repo-group-head { padding: 16px 16px 8px; }
+  .repo-row { padding: 0 16px; }
+  .repo-empty { padding: 48px 16px; }
+
+  /* The count and the grouping control do not fit on one line at 390, so the
+     control drops under the count instead of running out of the card. */
+  .repo-tools { flex-wrap: wrap; gap: 8px 16px; padding: 8px 16px; }
+
+  /* The control on its own line is still 330px, the label and its four
+     segments, against 326 of room at 390 — so the label wraps above them. */
+  .repo-seg-wrap { flex-wrap: wrap; row-gap: 6px; }
+
+  body.ov .cm-footer { padding: 24px 16px; }
+}

@@ -1,0 +1,915 @@
+/* ==========================================================================
+   Commitment detail page — Watchtower
+   Rebuilt against Figma node 15289-99639.
+
+   Geometry below is measured off the 1440px render of that node:
+     section rules      24 → 1416   (container, 24px gutters)
+     card column        24 → 595    (571 wide, on the container gutter)
+     gutter             80
+     prose column      675 → 1235   (560 wide)
+   The card column is first: the frame puts the quote — and the headline
+   figure above it — on the left.
+   Type comes from the .ts-* layer in styles.css, which is generated
+   from figma design/design-tokens.json. Nothing here sets a font size that
+   is not a design-system step, with one exception: the quote inside the
+   commitment card, which steps through the Lora headline ladder to fit its
+   box (see commitment.js).
+   ========================================================================== */
+
+/* The app shell in styles.css is built for the repository pages, which fill
+   the window and scroll inside their own panes: `body { overflow: hidden }`
+   and `.app { height: 100vh }`. With html's overflow left at `visible` that
+   hidden propagates to the viewport, so the wheel and trackpad do nothing —
+   only programmatic scrolling still moves the page, which is why this was
+   invisible to scripted checks. A commitment page is a long document and
+   scrolls as one, so the shell is released here and nowhere else. */
+html:has(body.cm) { height: auto; }
+
+body.cm {
+  height: auto;
+  min-height: 100%;
+  overflow: visible;
+}
+
+.cm .app {
+  height: auto;
+  min-height: 100vh;
+}
+
+/* The page's layout values — --cm-gutter, --cm-col-side, --cm-col-main,
+   --cm-gap, --cm-card-pad, --cm-rhythm, --cm-tail and --cm-clearance, at every
+   width — are generated into styles.css from the Layout collection in
+   figma design/design-tokens.json, where each one says what it is for. Only
+   the two that are not design values are set here. */
+.cm {
+  --cm-inset: 0px;            /* the card column sits on the container gutter  */
+  --cm-sticky-top: 136px;     /* remeasured at runtime                        */
+
+  background: var(--bg-tertiary);
+  color: var(--fg-primary);
+}
+
+/* --- Sticky page chrome --------------------------------------------------- */
+
+.cm .topbar {
+  position: sticky;
+  top: 0;
+  z-index: 30;
+}
+
+/* The crumb is the shared doc-navbar component; look and truncation come from
+   styles.css. All this adds is the page's own stickiness and its gutter, so there
+   is one place that decides how a breadcrumb reads. */
+.cm-breadcrumb {
+  position: sticky;
+  top: 56px;                  /* under the topbar */
+  z-index: 29;
+  padding: 0 var(--cm-gutter);
+}
+
+.cm-breadcrumb .current {
+  font-family: var(--font-body);
+  font-weight: 400;
+  font-size: var(--scale-400);
+  line-height: var(--scale-700);
+  color: var(--fg-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* --- Container and section grid ------------------------------------------ */
+
+/* No gutter here. A group carries a ground and a shadow, so it has to reach the
+   full width of the window — inset it and the shadow ends in mid-air down both
+   sides. The gutter moves to the grid inside, which leaves every column exactly
+   where it was. */
+.cm-container { padding: 0; }
+
+.cm-section { border-top: 1px solid var(--stroke-border-darker); }
+.cm-section:first-child { border-top: 0; }
+
+/* Card column first, prose second — the frame puts the quote and the headline
+   figure on the left. DOM order matches, rather than being reordered in CSS,
+   so the reading order a screen reader gets is the order on screen. */
+.cm-grid {
+  padding: 0 var(--cm-gutter);
+  display: grid;
+  grid-template-columns:
+    minmax(0, var(--cm-col-side))
+    minmax(0, var(--cm-col-main));
+  gap: var(--cm-gap);
+  justify-content: start;
+  /* Not `align-items: start`: that shrinks the side track to its content and
+     leaves the sticky card no room to travel, so it scrolls away instead of
+     pinning. The track must span the row. */
+  align-items: stretch;
+  /* The gutter lives here now that the section itself is full width, and this
+     line is what puts the card column on it. It was `var(--cm-inset)` alone,
+     which reset the left padding to zero and pushed the card to the window edge;
+     the inset is an extra beyond the gutter, not a replacement for it. */
+  padding-left: calc(var(--cm-gutter) + var(--cm-inset));
+}
+
+.cm-main { min-width: 0; }
+.cm-side { min-width: 0; }
+
+/* The hero's right column carries the deal card, which starts 24px below the
+   breadcrumb; every other section's card starts 40px in. */
+/* The hero gets the same runway as a Part. Without it the hero's column is
+   barely longer than the headline figure, so sticky hands the card back before
+   the last block reaches the top and the figure slides away on its own —
+   the one exit on the page that would not be the eased one. */
+.cm-hero-section .cm-main { padding: 48px 0 var(--cm-tail); }
+.cm-part .cm-main { padding: 0; }
+
+/* The track is padded top and bottom, matching the design: the card sits 40px
+   inside its group at both ends rather than running to the edge.
+
+   The cost, noted because it is not obvious: padding at the foot of a side track
+   is space the sticky card cannot travel into, so the card unpins that far before
+   its section actually ends. At 40px that is a fortieth of a screen and reads as
+   the card letting go slightly early; it was zero before precisely to avoid it,
+   back when a scripted exit needed every pixel of runway. With plain sticky the
+   trade is worth the spacing. */
+/* Each group's track carries the page ground and is positioned, so it masks the
+   card of the group before it.
+
+   Both halves are needed. A sticky card is a positioned element, so it paints in
+   a later layer than ordinary in-flow content — the previous card would sit on
+   top of the next group's background however opaque that background was. Making
+   the track positioned too puts it in the same layer, where document order
+   decides, and the later group wins.
+
+   Without the mask the previous card shows through wherever the incoming card
+   does not cover it, which is often: card heights follow the length of their
+   quote, so a short card never hides a tall one. */
+/* The ground belongs to the whole group, not to its left column.
+
+   A sticky card is a positioned element, so it paints above ordinary in-flow
+   content and would show through whatever came after it. Giving the section
+   itself a ground and a position puts it in the same layer, where document order
+   decides: each group covers the one before, card included.
+
+   It was on .cm-side alone, which covered the card but left that column's
+   extended track painting over the next section's top border — which is why the
+   rule stopped reaching the left edge. On the section, the border is drawn with
+   the ground that carries it and runs the full width again. */
+.cm-section {
+  position: relative;
+  background: var(--bg-tertiary);
+  /* No shadow. There was one, cast upward onto the group being covered; with
+     the cards stacking and fading on the way past it only muddied the join. */
+}
+/* 24 rather than 40. The padding above the card is the distance a group has to
+   travel past the bar before its card can pin, so a smaller inset means a group
+   takes over closer to the moment it arrives. The groups themselves sit flush —
+   the space between two cards is the two insets and nothing else, so 48. */
+.cm-hero-section .cm-side { padding: 24px 0; }
+.cm-part .cm-side { padding: 24px 0; }
+
+/* --- Blocks in the left column ------------------------------------------- */
+
+/* The space around a rule is padding on the two blocks it separates, never a
+   margin or a flex gap, so the blocks in a Part are contiguous and each owns
+   its own rhythm. The jump links rely on that: they land on a block's edge. */
+.cm-block:not(:last-child) { padding-bottom: var(--cm-rhythm); }
+
+.cm-block + .cm-block {
+  border-top: 1px solid var(--stroke-border-darker);
+  padding-top: var(--cm-rhythm);
+}
+
+/* Inside a Part the blocks also own the space at the section edges, so they
+   tile the whole column top to bottom. */
+/* 120 above the group heading, per the Quote Intro symbol 15314:1018. The card
+   beside it starts at its own 16px inset; the two are deliberately not level. */
+.cm-part .cm-block:first-child { padding-top: var(--cm-rhythm); }
+.cm-part .cm-block:last-child { padding-bottom: var(--cm-tail); }
+
+.cm-block h1,
+.cm-block h2,
+.cm-block h3,
+.cm-block p,
+.cm-block ul { margin: 0; }
+
+.cm-stack { display: flex; flex-direction: column; }
+.cm-stack > * { margin: 0; }
+
+/* --- Hero ----------------------------------------------------------------- */
+
+.cm-title { color: var(--fg-primary); }
+
+.cm-intro { color: var(--fg-primary); margin-top: 48px; }
+
+/* Under the headline: that the analysis is AI-generated, then Watchtower's own
+   date. Label ink (Foreground/label-secondary), as Figma 15317:1249 sets it: it
+   is a note about the page rather than part of the argument on it. 32 under
+   the title and 32 above the jump links, at every width — the Page Intro
+   component, Figma 15324:106796, and its mobile variant.
+
+   Named inside .cm-block as well: `.cm-block p { margin: 0 }` outranks a lone
+   class, and on desktop, where the note sits in the hero's block, it zeroed
+   the margin and left the note flush against the title. */
+.cm-title-meta,
+.cm-block .cm-title-meta { margin-top: var(--scale-800); color: var(--fg-label-secondary); }
+
+/* --- Jump links -----------------------------------------------------------
+   A ruled list, not a stack of small links — Figma 15742:114015, the same at
+   both widths. Each row is the full width of the column with the label hard
+   left and the arrow hard right, so the rules give the block its shape and the
+   whole row is the target rather than the words alone. */
+.cm-jump { margin-top: var(--scale-800); }
+
+.cm-jump ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  /* The rule above the first row. Every row draws its own bottom rule, so the
+     list only has to close the top. */
+  border-top: 1px solid var(--stroke-border-darker);
+}
+
+.cm-jump a {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--stroke-border-darker);
+  color: var(--fg-primary);
+  text-decoration: none;
+}
+
+/* The row is the target, so the label is what underlines — not the arrow with
+   it, which would drag a rule out to the right edge. */
+.cm-jump a:hover .cm-jump-text { text-decoration: underline; }
+
+.cm-jump-text { min-width: 0; }
+
+/* The sprite has no down arrow; the forward arrow turned a quarter turn
+   is the same glyph the frame draws. */
+.cm-jump .ico {
+  width: 16px;
+  height: 16px;
+  flex: none;
+  transform: rotate(90deg);
+  color: var(--fg-secondary);
+}
+
+/* Source documents block */
+
+/* Commitment/Sources, Figma 15324:107006 (web) and 15752:117576 (mobile): the
+   heading, the intro and the rows are one stack, 48 apart on the web and 24 on
+   a phone. A flex gap rather than margins, as the component draws it — with
+   margins the intro's top margin collapsed into the heading's and nothing put
+   space under it, so the rows sat flush against the prose.
+
+   The rule above and the 120 before the heading are the block rhythm's, not
+   this block's; see `.cm-block + .cm-block`. */
+.cm-sources { display: flex; flex-direction: column; gap: 48px; }
+
+/* The intro is one element in the component. When sourcesIntro() composes it
+   as two paragraphs they are prose, and sit 16 apart as prose does elsewhere on
+   the page (`.cm-field > p + p`). */
+.cm-block .cm-sources-note { color: var(--fg-primary); }
+.cm-block .cm-sources-note + .cm-sources-note { margin-top: 16px; }
+
+/* The slot has no gap of its own in the component, which only ever draws one
+   row; 8 is what keeps two white tiles reading as two. */
+.cm-sources-list { display: flex; flex-direction: column; gap: 8px; }
+
+/* Commitment/Source, Figma 15324:106997. The row is a white tile on the page
+   ground — no border, no outline. It had been carrying a 1px border, an 8px
+   radius, 16px of padding and the page's own background, which drew it as an
+   outlined panel; the component is none of those things.
+
+   `align-items: flex-start` rather than centre: the title wraps to two lines on
+   a phone and a centred icon then floats opposite the middle of the block
+   instead of sitting against its first line. */
+.cm-source {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 8px;
+  border-radius: 4px;
+  background: var(--bg-primary);
+}
+
+/* 20px in the component, not 16, and the article glyph the design names
+   (ic:outline-article) rather than the watchtower mark that was standing in for
+   it. The fill is baked into the asset at leaf_300, as every other icon in the
+   sprite bakes its own. */
+.cm-source-ico {
+  flex: none;
+  width: 20px;
+  height: 20px;
+}
+
+.cm-source-col { min-width: 0; }
+
+/* body/small_bold — 14/20. It was label/small, which is 10/12 and uppercase:
+   a caption, where the component asks for the row's primary line. */
+.cm-source-name {
+  display: block;
+  color: var(--fg-link);
+  text-decoration: none;
+}
+
+.cm-source-name:hover { text-decoration: underline; }
+
+.cm-source-meta { margin-top: 2px; color: var(--fg-secondary); }
+
+/* --- Deal card (dark) ----------------------------------------------------- */
+
+/* Commitment/Deal, Figma 15314:1013 (web) and 15752:117906 (mobile).
+   16 top and bottom, 24 left and right on the web variant — it was 24 all
+   round, which gave the card more height than the component draws. */
+.cm-deal {
+  background: var(--bg-contrast);
+  color: var(--fg-accent);
+  padding: 16px 24px;
+  border-radius: 8px;
+}
+
+/* The hero card is the page's opening statement: square corners, generous
+   padding, illustration stacked above the figure. It pins exactly as the
+   quote cards do, so the headline figure holds until the first quote
+   arrives to replace it. */
+.cm-deal.is-hero {
+  border-radius: 0;
+  padding: 40px 40px 48px;
+  /* The overview's quote cards carry the same lift. */
+  box-shadow: var(--shadow-small);
+  position: sticky;
+  top: var(--cm-sticky-top);
+}
+
+.cm-deal .cm-art { display: block; }
+.cm-deal .cm-art svg { width: 76px; height: 76px; display: block; }  /* 76 square, 15314:959 */
+/* Frames 15725:109400 and 110220. The illustration is 120 square in both. What
+   follows it differs: with no deal the copy starts 40 under it, and with one the
+   figure sits 16 under the illustration and the copy 16 under the figure — the
+   figure and illustration read as one block, so they are closer to each other
+   than the block is to the prose. */
+.cm-deal.is-hero .cm-art svg { width: 120px; height: 120px; }
+.cm-deal.is-hero .cm-art + .cm-deal-body { margin-top: 40px; }
+.cm-deal.is-hero .cm-deal-figure { margin-top: 16px; }
+.cm-deal.is-hero .cm-deal-figure + .cm-deal-body { margin-top: 16px; }
+
+.cm-deal-row { display: flex; align-items: flex-start; gap: 16px; }
+.cm-deal-row .cm-art { flex: none; }
+.cm-deal-col { min-width: 0; }
+
+/* The text column: 8 above, 16 below, and 12 between its three parts — the
+   figure, the parties block, and why it got through. Parties and instruments
+   are one part, so nothing separates them; the component gives that inner
+   stack no gap at all, and the 4px it used to carry made the instruments read
+   as a third line rather than as the tail of the second. */
+.cm-deal-col { padding: 8px 0 16px; }
+.cm-deal-line { margin-top: 12px; }
+.cm-deal-instruments { color: var(--fg-accent); margin-top: 0; }
+/* Named inside .cm-deal as well: the deal card sits in a .cm-block, and
+   `.cm-block p { margin: 0 }` outranks a lone class, which left why-it-got-
+   through flush against the parties. */
+.cm-deal-body,
+.cm-deal .cm-deal-body { margin-top: 12px; color: var(--sky-150); }
+.cm-deal-body + .cm-deal-body { margin-top: 12px; }
+.cm-deal.is-hero .cm-deal-body { color: var(--fg-accent); }
+
+/* The hero card is prose, not a deal row, and keeps the spacing its own frame
+   draws — see the is-hero rules above. */
+.cm-deal.is-hero .cm-deal-col { padding: 0; }
+
+.cm-deal-note { margin-top: 8px; color: var(--sky-300); }
+
+/* Deliberately quiet: the credits are provenance, not part of the read.
+   sky_400 in the component; sky_500 was a step too light to read on the
+   contrast ground. 16 from the block above, which is the card's own gap. */
+.cm-block .cm-credits,
+.cm-credits {
+  margin-top: 16px;
+  color: var(--sky-400);
+}
+
+.cm-credits a { color: var(--sky-400); }
+
+/* --- The commitment card -------------------------------------------------- */
+
+.cm-card {
+  position: sticky;
+  top: var(--cm-sticky-top);
+  display: flex;
+  flex-direction: column;
+  gap: 40px;
+  /* <figure> carries a UA margin of 14px 40px, which would inset the card
+     inside its own grid track and then feed back through aspect-ratio. */
+  margin: 0;
+  padding: var(--cm-card-pad);
+  background: var(--bg-card);
+  /* As the overview's quote cards. overflow: hidden below clips the quote, not
+     the card's own shadow. */
+  box-shadow: var(--shadow-small);
+  /* The width is the grid track, stated explicitly so that aspect-ratio can
+     only ever resolve the height — otherwise a height set from JS resolves
+     back into a width and the two chase each other. Minimum a square; JS
+     raises the height when the quote needs the room, capped at the window. */
+  width: 100%;
+  aspect-ratio: 1;
+  height: var(--cm-card-h, auto);
+  min-height: 0;
+  overflow: hidden;
+}
+
+.cm-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex: none;
+}
+
+.cm-tabs {
+  display: inline-flex;
+  padding: 4px;
+  background: var(--bg-tools-tabs);
+  border-radius: 4px;
+}
+
+.cm-tab {
+  appearance: none;
+  border: 0;
+  border-radius: 2px;
+  background: transparent;
+  padding: 0 8px;
+  height: 24px;
+  cursor: pointer;
+  color: var(--fg-tools-tabs);
+  font-family: inherit;
+}
+
+.cm-tab.is-active {
+  background: var(--bg-tools-tabs-active);
+  color: var(--fg-tools-tabs-active);
+}
+
+.cm-check {
+  display: inline-flex;
+  align-items: center;
+  height: 24px;
+  padding: 0 8px;
+  border: 1px solid var(--stroke-button-secondary);
+  border-radius: 4px;
+  background: var(--bg-button-secondary);
+  color: var(--fg-primary);
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.cm-quote {
+  /* <blockquote> carries a UA margin of 1em 40px, which would both push the
+     quote down and narrow its measure, changing every wrap point. */
+  margin: 0;
+  flex: 1 1 auto;
+  min-height: 0;
+  font-family: var(--font-quote);
+  font-weight: 400;
+  letter-spacing: var(--ls-quotes);
+  font-size: var(--cm-quote-size, 36px);
+  line-height: var(--cm-quote-leading, 44px);
+  color: var(--fg-primary);
+  overflow: hidden;
+}
+
+/* Measuring pass: the quote must report its natural height, not the height of
+   the flex track it will later be given. */
+.cm-card.is-measuring { height: auto; aspect-ratio: auto; min-height: 0; }
+.cm-card.is-measuring .cm-quote { flex: 0 0 auto; overflow: visible; }
+
+/* A span rather than a button: a button is an atomic inline box and cannot
+   fragment across lines, so a long phrase gets pushed onto a line of its own.
+   Every text property is inherited so the highlight sits on the baseline
+   grid exactly as the surrounding words do. */
+.cm-hl {
+  display: inline;
+  color: var(--fg-link);
+  cursor: pointer;
+  font: inherit;
+  letter-spacing: inherit;
+  word-spacing: inherit;
+  background: none;
+  border: 0;
+  padding: 0;
+}
+
+.cm-hl:focus-visible { outline: 2px solid var(--ocean-600); outline-offset: 2px; }
+
+/* --- Part sections -------------------------------------------------------- */
+
+/* Scoped to .cm-block for the same reason the sources rules are: the resets
+   `.cm-block p` and `.cm-block h2` are class-plus-element and outrank a bare
+   class, so a margin written on the class alone computes to zero. These two
+   were — a Part's heading sat flush against its intro, and a deal card's
+   credits flush against its prose. */
+.cm-part-title { color: var(--fg-primary); }
+.cm-block .cm-part-desc { margin-top: 32px; color: var(--fg-primary); }
+
+/* --- Phrase blocks -------------------------------------------------------- */
+
+/* title, chip, provenance — one stack, 8 apart (frame 15725:109400) */
+.cm-phrase-head { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; }
+
+/* 20px tall: label/small at 10/12 with 4 above and below, 8 either side, and a
+   16px radius — 15317:1091. The radius matters at this height: 999 makes the
+   ends true semicircles, 16 leaves them slightly flatter, which is what the
+   component draws. */
+.cm-chip {
+  display: inline-block;
+  padding: 4px 8px;
+  border-radius: 16px;
+  background: var(--ocean-600);
+  color: var(--fg-accent);
+}
+
+/* Frames 15725:109400 / 110220: the blocks inside a loophole sit 64 apart. */
+.cm-field, .cm-rw { margin-top: 64px; }
+.cm-field-label { color: var(--fg-secondary); margin-bottom: 4px; }
+
+/* The deals block is the exception: 12 under its label rather than 4, because
+   what follows is a card and not a line of prose — 15317:1102. */
+.cm-field-label.is-deals { margin-bottom: 12px; }
+/* Direct children only. As a descendant selector this also caught the
+   paragraphs inside the deal card nested in the field — dark ink on the dark
+   card, invisible — because `.cm-field p` outranks `.cm-deal-body`. */
+.cm-field > p { margin: 0; color: var(--fg-primary); }
+
+.cm-field > p + p { margin-top: 16px; }
+
+/* The bank's own definition of the phrase, inside "What it means" rather than
+   beside it. Set off by a rule on the leading edge, not a card: it is part of
+   this block's argument, and a card would read as a separate section. */
+.cm-bank-def {
+  margin-top: 16px;
+  padding-left: 16px;
+  border-left: 2px solid var(--fg-link);
+}
+
+.cm-bank-def-quote { margin: 0; color: var(--fg-primary); }
+
+.cm-bank-def-foot {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 8px;
+  flex-wrap: wrap;
+}
+
+.cm-bank-def .cm-check .ico { width: 12px; height: 12px; }
+
+.cm-field > ul { margin: 0; padding-left: 20px; color: var(--fg-primary); }
+.cm-field li + li { margin-top: 12px; }
+
+/* --- Boundary ------------------------------------------------------------- */
+
+
+/* --- Assessment ----------------------------------------------------------- */
+
+.cm-footer { position: relative; background: var(--bg-tertiary); }
+
+/* Figma 15289:100256. One column on a 922px track with 64 inside it, so the text
+   runs 794 wide, centred. Inside: 80 above the head group — the opinion line, 8,
+   the title, 32, the stamp — then 64 to the verdict and 80 under it, then the
+   change card. Positioned, because the last quote card is still pinned when
+   this arrives and would otherwise be painted over it on the way past. */
+.cm-assessment {
+  position: relative;
+  background: var(--bg-contrast);
+  color: var(--fg-accent);
+  padding: 24px var(--cm-gutter) 80px;
+}
+
+.cm-assess-col { max-width: 922px; margin: 0 auto; padding: 0 64px; }
+.cm-assess-head { display: flex; flex-direction: column; gap: 32px; padding-top: 80px; }
+.cm-assess-titles { display: flex; flex-direction: column; gap: 8px; }
+.cm-assess-lead { color: var(--fg-label-secondary); }
+.cm-assess-title { color: var(--fg-accent); }
+
+/* The exported stamp carries its own tilt, so it is placed as drawn: 24 in from
+   the column, at its drawn size, and never wider than the column. */
+.cm-stamp { display: block; margin-left: 24px; max-width: calc(100% - 24px); height: auto; }
+
+/* body/medium in white. The 20 between paragraphs is body/medium's paragraph
+   spacing, generated with the text styles. */
+.cm-verdict { margin-top: 64px; padding-bottom: 80px; }
+.cm-verdict p { color: var(--fg-accent); }
+
+.cm-change-card {
+  display: flex;
+  flex-direction: column;
+  gap: 40px;
+  background: var(--sky-400);
+  color: var(--fg-accent);
+  border-radius: 10px;
+  padding: 40px;
+}
+
+.cm-change-item { display: flex; flex-direction: column; gap: 4px; }
+.cm-change-item .b { color: var(--sky-100); }
+.cm-change-closing { margin: 0; color: var(--sky-100); }
+
+/* --- Footer --------------------------------------------------------------- */
+
+.cm-footer {
+  border-top: 1px solid var(--stroke-border-darker);
+  padding: 24px var(--cm-gutter);
+  color: var(--fg-secondary);
+  background: var(--bg-tertiary);
+}
+
+.cm-footer .inner {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.cm-footer a { color: var(--fg-secondary); }
+.cm-footer .spacer { flex: 1 1 auto; }
+.cm-footer .sep { width: 1px; height: 16px; background: var(--stroke-border-darker); }
+
+.cm-wordmark {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 18px;
+  line-height: 24px;
+  letter-spacing: var(--ls-titles);
+  color: var(--fg-primary);
+}
+
+.cm-wordmark .ico { width: 13px; height: 20px; }
+
+.cm-sr {
+  position: absolute;
+  width: 1px; height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+/* --- Motion ------------------------------------------------------------------
+   The card is plain `position: sticky`: it pins while its section scrolls and
+   the next card overlays it on the way past. No entry, exit or reveal motion —
+   commitment.js records why the scripted versions came out.
+
+   The card recedes as its successor covers it — see the stack in commitment.js.
+   The origin is the top edge, so a shrinking card stays hung from the bar rather
+   than drifting down away from it, and `backface-visibility` keeps the scaled
+   text off the fractional-pixel grid that otherwise makes it shimmer.
+
+   One constraint: never put a transform on the side column. A transform makes it the containing block for the card inside
+   it, so `position: sticky` pins to that box instead of the viewport and the card
+   stops sticking altogether. Animate the card, or the prose column, not the track
+   that holds them. */
+.cm-card, .cm-deal.is-hero {
+  transform-origin: 50% 0;
+  backface-visibility: hidden;
+}
+
+/* --- Narrow viewports ----------------------------------------------------- */
+
+/* Below the point where two columns plus the inset still fit, the card stops
+   being a sidebar: it goes full width above its part and stops sticking, so
+   nothing is pinned over a single-column read. */
+@media (max-width: 1100px) {
+  /* The layout values for this width come from design-tokens.json. */
+  .cm { --cm-inset: 0px; }
+
+  /* One column, and nothing else. The left padding is deliberately not touched:
+     the base rule resolves it to `gutter + inset`, and with the inset zeroed
+     above that is already the plain gutter. Restating it as `0` here — which
+     this block used to do, from when the base rule was the inset alone — took
+     the left gutter away entirely and stood every section hard against the
+     window edge while the right kept its 24px. */
+  .cm-grid { grid-template-columns: minmax(0, 1fr); }
+
+  .cm-side { order: -1; }
+
+  .cm-card {
+    position: static;
+    height: auto;
+    aspect-ratio: auto;
+    min-height: 0;
+  }
+
+  /* The hero's figure card sticks by its own rule, not `.cm-card`'s, so
+     releasing the quote card above left this one pinned — the one thing still
+     hanging over a single-column read. */
+  .cm-deal.is-hero { position: static; }
+
+  /* The band commitment.js moves the headline into above the hero grid, from
+     here down — placeTitle(). It carries the gutter itself, because it is a
+     child of the section rather than of the grid that normally supplies one,
+     and the 32 above it that the hero's columns take at this width. */
+  .cm-title-band { padding: 32px var(--cm-gutter) 0; }
+
+  /* Each Part's quote card sits between its blocks from here down —
+     placeCards() moves it after the Part's first block — which breaks the
+     `.cm-block + .cm-block` adjacency the rule and its spacing hang off, so the
+     block after the card was left flush against it with no rule at all. It
+     inherits both from here, and the card carries the other half of the
+     boundary itself: its padding is inside its own edge, so without this the
+     rule was drawn hard against the card's bottom. */
+  .cm-part .cm-main > .cm-card { margin-bottom: var(--cm-rhythm); }
+
+  .cm-part .cm-main > .cm-card + .cm-block {
+    border-top: 1px solid var(--stroke-border-darker);
+    padding-top: var(--cm-rhythm);
+  }
+
+  /* With the card moved into the prose column a Part's card column has nothing
+     left in it, and an empty grid item is still a grid item: its padding top
+     and bottom plus the row gap, a band of nothing between the section rule and
+     the heading under it. The hero keeps its column, because its figure card
+     still lives there. */
+  .cm-part .cm-side:empty { display: none; }
+
+  .cm-hero-section .cm-main,
+  .cm-hero-section .cm-side,
+  .cm-part .cm-main,
+  .cm-part .cm-side { padding: 32px 0; }
+
+}
+
+/* --- Phone --------------------------------------------------------------------
+   The 1100 break is about the two columns no longer fitting; this one is about
+   a phone. Drawn against Figma 15742:113995, which sets a 16px gutter and 16px
+   of card padding throughout — at 390 that is the difference between 286px of
+   card interior and 326px, and 286 is not enough for the headline figure. */
+@media (max-width: 700px) {
+  /* The phone's gutter, card padding, rhythm and tail come from the Layout
+     collection in design-tokens.json, with the reasoning for each. */
+
+  /* The blocks own the section's top and bottom edges here, as they do on
+     desktop. The 32px the narrow block adds was stacking on top of the first
+     block's own rhythm and making every section boundary its own event. */
+  .cm-part .cm-main { padding: 0; }
+
+  /* The card's own proportions. The head row and the quotation are one thought
+     — the switch says which rendering you are reading, and it should sit with
+     the words rather than float above them — so the gap between them closes by
+     16, from the desktop 40 to 24. The foot opens by the same reasoning
+     inverted: the quotation needs room under it before the card's edge, or the
+     last line reads as though it has been cut off. 16 of inset plus 24.
+
+     chromeOf() reads both off the computed style when it fits the quote, so the
+     ladder accounts for this without being told. */
+  .cm-card {
+    gap: 24px;
+    padding-bottom: calc(var(--cm-card-pad) + 24px);
+  }
+
+  /* A quote group's own edges are wider than the boundaries inside it. The
+     rhythm is what separates one block from the next; arriving at a whole group
+     and leaving it are bigger moves than that, so both ends take another 24.
+     Written against the rhythm rather than as a number of their own, so the two
+     stay related when it changes. */
+  .cm-part .cm-block:first-child { padding-top: calc(var(--cm-rhythm) + 24px); }
+  .cm-part .cm-block:last-child { padding-bottom: calc(var(--cm-rhythm) + 24px); }
+
+  /* Measured, not assumed: at 326px Poppins 600 sets $188.4M in 251px and the
+     widest figure the data could hold, $1,234.5M, in 299px — both clear. At 80px
+     the same two are 334 and 398, which is why the figure was running out of its
+     own card. 60 is the next step down the Poppins ladder in design-tokens.json;
+     48 is not on it. The leading stays tighter than the size, as number/large
+     does at 80/72, so the figure still reads as a block rather than a line —
+     and 48 is the box the frame draws. */
+  .cm-deal.is-hero .cm-deal-figure {
+    font-size: var(--scale-1500);
+    line-height: var(--scale-1200);
+  }
+
+  /* `.cm-deal.is-hero` carries its own padding at two classes, so a rule
+     written on `.cm-deal` alone never reached the hero card — it kept the 40px
+     that left the figure 278px to sit in. Both are named here. */
+  .cm-deal,
+  .cm-deal.is-hero { padding: var(--cm-card-pad); }
+
+  /* The page's headings are not sized here. title/xlarge resolves to
+     title/large at this width and title/large to title/medium, from the one
+     ramp in styles.css — which is what took "Commitment" down from the 418px
+     it set at 60/60 in a 358px column. A size written here would be a second
+     place to look when a heading is wrong. */
+
+  /* The deal card's art sits beside its text at every width the desktop frame
+     covers. At 390 that leaves the column about 250px — narrower than the
+     figure needs — so the art goes above it instead, as Figma 15743:114665
+     draws. Desktop keeps the row: the reason to stack does not exist there. */
+  .cm-deal-row { flex-direction: column; gap: 16px; }
+
+  /* The mobile variant (15752:117906) keeps the web variant's type: the figure
+     at title/medium and the parties at body/large_bold. The phone's type scale
+     would step both down a size; on this card the figure is the point. */
+  .cm-deal:not(.is-hero) .cm-deal-figure { font-size: var(--scale-800); line-height: var(--scale-1000); }
+  .cm-deal .cm-deal-line { font-size: var(--scale-450); line-height: var(--scale-700); }
+
+  /* The mobile variants of Commitment/Loophole (15752:117832) and
+     Commitment/Sources (15752:117576) halve the spacing the desktop ones use.
+     The phrase steps down with the ramp, not from here. */
+  .cm-field, .cm-rw { margin-top: 32px; }
+  .cm-sources { gap: 24px; }
+
+  /* The one heading sized here, because the quote ramp does not step down with
+     the title ramp — styles.css holds quote/* at one size across widths. The
+     phrase heading is quote/large on desktop and quote/medium on a phone. */
+  .cm-phrase-head h3 { font-size: var(--scale-700); line-height: var(--scale-900); }  /* Lora 28/36 */
+
+  /* The assessment keeps its order and loses its inset: the column sits on the
+     gutter alone, the stamp on the column's edge, the spacing steps down to the
+     phone's rhythm, and the change card takes the card padding the quote and
+     hero cards use (--cm-card-pad, 16 here). */
+  .cm-assess-col { padding: 0; }
+  .cm-assess-head { padding-top: var(--cm-rhythm); }
+  .cm-stamp { margin-left: 0; max-width: 100%; }
+  .cm-verdict { margin-top: 40px; padding-bottom: var(--cm-rhythm); }
+  .cm-change-card { padding: var(--cm-card-pad); gap: 32px; }
+}
+
+/* --- Snapping between quote groups -------------------------------------------
+   The behaviour is in commitment.js, not here. CSS scroll-snap cannot do it:
+   it has no notion of direction, so it would catch the reader on the way back
+   up as hard as on the way down, and `proximity` decides its own threshold and
+   its own easing — neither of which is the "push through, then let go" this
+   wants. All that is left for the stylesheet is the distance a snapped heading
+   has to clear, which the script reads from here. */
+
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+}
+
+/* Bank.Green's own reading, printed under the chip. coral_600 from the design
+   system; the label is phrases[].not_in_synthesis, never inferred. */
+.cm-not-in-synthesis { color: var(--fg-flag); }
+
+/* Hero scenarios. Same component, two grounds: light for a page that found nothing,
+   the dark card for one that did. Figma 15725:109400 and 15725:110220. The title is
+   not in here — it stays in the right column for both, so the panel has exactly one
+   dominant element: the illustration in A, the figure in B. */
+.cm-deal.is-hero.is-none {
+  background: var(--bg-hero-none);
+  color: var(--fg-primary);
+}
+.cm-deal.is-hero.is-none .cm-deal-body { color: var(--fg-primary); }
+
+/* Sized from measure(); the negative margin on the track takes it back out of
+   the layout so the section height is unchanged. */
+.cm-reach { flex: none; pointer-events: none; }
+
+/* --- Dark variant -------------------------------------------------------------
+   An opt-in modifier on the breadcrumb and the footer, not a change to either.
+   Both keep their own layout, spacing and behaviour; only the surface and the
+   ink swap, to the pair the assessment already uses. Removing `is-dark` returns
+   them exactly as they were.
+
+   The breadcrumb wears it while the assessment is behind it, so the bar does not
+   sit as a pale strip over a dark section. The footer can wear it permanently —
+   see FOOTER_DARK in commitment.js. */
+.doc-navbar.is-dark,
+.cm-footer.is-dark {
+  background: var(--bg-contrast);
+  border-color: var(--sky-700);
+}
+
+/* One step down the ramp from the surface it sits over. Background/contrast is
+   sky_800, so a bar on sky_850 reads as being in front of the section rather than
+   part of it — the same separation the light bar gets from the page ground.
+
+   And no rule, because that separation is already doing the work. The light bar
+   needs one: it sits on the same ground as the page and a rule is the only thing
+   telling the two apart. Two surfaces that differ do not, and a line drawn
+   between them only adds a third value to read. */
+.doc-navbar.is-dark {
+  background: var(--sky-850);
+  border-bottom: 0;
+}
+.doc-navbar.is-dark .crumbs > b,
+.doc-navbar.is-dark .crumbs > b > a { color: var(--fg-accent); }
+/* The chevron is a <use> reference, and a fill written on the path inside the
+   symbol cannot be reached by a selector from out here — a <use> builds a shadow
+   tree, and only inherited properties cross into it. So the symbol paints with
+   `currentColor` and the colour is set on the icon itself, which does inherit.
+   In light mode currentColor is the crumb's own ink, which is the colour the
+   symbol used to hardcode, so nothing changes there. */
+.doc-navbar .crumbs .ico { color: var(--fg-primary); }
+.doc-navbar.is-dark .crumbs .ico { color: var(--sky-200); }
+
+.cm-footer.is-dark { color: var(--sky-200); }
+.cm-footer.is-dark a { color: var(--sky-200); }
+.cm-footer.is-dark .cm-wordmark { color: var(--fg-accent); }
+
+/* No transition. The bar meets a hard edge — the moment the dark surface reaches
+   it — and easing across that edge means the two disagree for the length of the
+   ease: a pale bar over a dark band, or the reverse. The swap is instant so the
+   bar always matches whatever is directly beneath it. */
